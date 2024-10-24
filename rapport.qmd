@@ -1,6 +1,6 @@
 ---
-subtitle: "Rapport Statistique - V 3.0"
-cache: true
+subtitle: "Rapport Statistique - V 4.0"
+cache: false
 ---
 
 ```{r}
@@ -120,7 +120,6 @@ tabpair <- function(ncol,
                     sheet) {
   tabx <- NULL
   for (i in ncol) {
-    print(i)
     lig <- NULL
     t1 <- pull(tt[, i])
     t2 <- pull(tt[, i + 1])
@@ -146,7 +145,7 @@ tabpair <- function(ncol,
     relocate(Score)
   names(taby) <- c("SF36", "Avant", "20 séances", "p-value")
   zz <- kbl(taby, booktabs = TRUE) |>
-    kable_styling(latex_options = c("HOLD_position")) |>
+    kable_styling(latex_options = "HOLD_position") |>
     footnote(general = "Médiane (quartiles) - Test de Wilocoxon")
   if (exp) {
     zz |>
@@ -544,7 +543,6 @@ tabpair(c(26,28,30,32),
         sheet ="difment")
 
 ```
-```
 
 ```{r}
 #| label: difment
@@ -659,8 +657,6 @@ ttdifm |>
 ridgeph(titre = "Items du score mental - évolution")
 ```
 
-\clearpage
-
 ## Évolution des scores selon le score initial
 
 On cherche s'il existe une corrélation entre le score (physique ou mental) avant les séances & l'évolution du score.
@@ -741,33 +737,6 @@ tta |>
   )
 ```
 
-## Avant/après
-
-
-```{r}
-#| label: tab-avap
-#| tbl-cap: "Comparaison avant/après les 20 séances d'escrime"
-tabx <- NULL
-nn <- c(seq(16, 22, 2), seq(26, 32, 2))
-for (i in nn) {
-  med1 <- round(quantile(tt[[i]], na.rm = TRUE), 2)
-  mm1 <- paste0(med1[3], " [", med1[2], ";", med1[4], "]")
-  med2 <- round(quantile(tt[[i + 1]], na.rm = TRUE), 2)
-  mm2 <- paste0(med2[3], " [", med2[2], ";", med2[4], "]")
-  zz <- wilcox.test(tt[[i]], tt[[i + 1]], paired = TRUE)
-  ll <- c(mm1, mm2, beaup(zz$p.value))
-  tabx <- rbind(tabx, ll)
-}
-tabx <- as_tibble(tabx)
-tabx$Item <- nscore
-tabx <- relocate(tabx, Item)
-names(tabx) <- c("Item", "Avant", "Après", "p-value")
-tabx |>
-  kbl(booktabs = T) |>
-  kable_styling(latex_options = c("HOLD_position"))
-```
-
-On compare ici non pas les médianes globales mais les différences avant/après, cas par cas. L'hypothèse $\mathcal{H}_0$ est donc que la différence avant/après soit nulle. On utilise le test de Wilcoxon pour séries appariées, plus sensible ce qui explique la différence apparente de résultat avec les tableaux @tbl-differencephy & @tbl-diffmental.
 
 ```{r}
 #| label: tab-diffpos
@@ -790,7 +759,7 @@ dif2 |>
 ```
 
 
-## Mens sana in corpore sano {.smaller}
+## Mens sana in corpore sano 
 
 ```{r}
 #| label: tab-conc
@@ -867,7 +836,6 @@ tta |>
 
 L'amélioration (ou la non amélioration) des deux segments, physique & mental, semble liée.
 
-\clearpage
 ## Facteurs influants
 
 ```{r}

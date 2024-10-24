@@ -1,0 +1,67 @@
+---
+title: "Escrime & cancer du sein"
+subtitle: "Analyse factorielle"
+lang: fr
+language:
+  title-block-author-single: "Auteur"
+author:
+  - name: "D<up>r</up> Philippe MICHEL"
+    affiliations:
+      name: "USRC - Hôpital NOVO"
+      department: "Unité de Soutien à la Recherche Clinique"
+format:
+  html:
+    page-layout: full
+    toc: true
+    theme:
+      light: cerulean
+      dark: cyborg
+    code-fold: true
+
+embed-resources: true
+highlight-style: ayu
+cache: false
+warning: false
+message: false
+bibliography: stat.bib
+license: "MIT"
+---
+
+```{r}
+#| label: setup
+
+rm(list = ls())
+tt <- readRDS("data/escrime.rds")
+bn <- readRDS("data/bn.rds")
+bn <- bn$Nom
+expx <- FALSE
+classeur <- "escrime2.xls"
+if (expx){system(paste0("rm -f ",classeur))}
+#
+library(baseph)
+library(janitor)
+library(tidyverse)
+library(gtsummary)
+library(kableExtra)
+library(lubridate)
+library(kableExtra)
+library(GGally)
+library(labelled)
+library(epiDisplay)
+library(visdat)
+library(GGally)
+library(ggridges)
+library(colorspace)
+#
+theme_gtsummary_language(language = "fr", decimal.mark = ",")
+options(OutDec = ",")
+
+nscore <- c("PF (fonctionnement physique)",
+"RP (limitation physique)",
+"BP (douleur physique)",
+"GH (santé générale)",
+"VT (vitalité)",
+"SF (fonctionnement social)",
+"RE (limitation émotionnelle)",
+"MH (santé mentale)") 
+```

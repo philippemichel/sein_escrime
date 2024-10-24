@@ -1,0 +1,224 @@
+---
+title: "Escrime & cancer du sein"
+subtitle: "Compléments"
+lang: fr
+language:
+  title-block-author-single: "Auteur"
+author:
+  - name: "D<up>r</up> Philippe MICHEL"
+    affiliations:
+      name: "USRC - Hôpital NOVO"
+      department: "Unité de Soutien à la Recherche Clinique"
+format:
+  html:
+    page-layout: full
+    toc: true
+    theme:
+      light: cerulean
+      dark: cyborg
+    code-fold: true
+
+embed-resources: true
+highlight-style: ayu
+cache: false
+warning: false
+message: false
+bibliography: stat.bib
+license: "MIT"
+---
+
+```{r}
+#| label: setup
+
+rm(list = ls())
+tt <- readRDS("data/escrime.rds")
+bn <- readRDS("data/bn.rds")
+bn <- bn$Nom
+expx <- FALSE
+classeur <- "escrime2.xls"
+if (expx){system(paste0("rm -f ",classeur))}
+#
+library(baseph)
+library(janitor)
+library(tidyverse)
+library(gtsummary)
+library(kableExtra)
+library(lubridate)
+library(kableExtra)
+library(GGally)
+library(labelled)
+library(epiDisplay)
+library(visdat)
+library(GGally)
+library(ggridges)
+library(colorspace)
+#
+theme_gtsummary_language(language = "fr", decimal.mark = ",")
+options(OutDec = ",")
+
+nscore <- c("PF (fonctionnement physique)",
+"RP (limitation physique)",
+"BP (douleur physique)",
+"GH (santé générale)",
+"VT (vitalité)",
+"SF (fonctionnement social)",
+"RE (limitation émotionnelle)",
+"MH (santé mentale)") 
+```
+
+```{r}
+#| label: macro_ridgeph
+
+ridgeph <- function(df, titre = ""){
+ df |>  
+  ggplot() +
+    aes(x= value, y = name, fill = name) +
+    geom_density_ridges() +
+  theme_ridges(center_axis_labels = FALSE) +
+    geom_vline(xintercept = 0,linetype = "dotdash", color = "grey20") +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
+    labs(title = titre) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.title = element_text(size = 12),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+} 
+```
+
+```{r}
+#| label: différences
+
+avp <- seq(16,22,2)
+nnp <- str_sub(names(tt[avp]),1,2)
+app <- avp + 1
+avm <- seq(26,32,2)
+nnm <- str_sub(names(tt[avm]),1,2)
+apm <- avm + 1
+#
+ttdif <- 1:58
+for (i in 1:4) {
+ll <-  tt[,app[i]] - tt[,avp[i]]
+names(ll) <- nnp[i]
+ttdif <- cbind(ttdif,ll)
+}
+ttdifp <- tibble(ttdif[,-1]) |> 
+  drop_na()
+var_label(ttdifp) <- nscore[1:4]
+#
+ttdif <- 1:58
+for (i in 1:4) {
+  ll <-  tt[,apm[i]] - tt[,avm[i]]
+  names(ll) <- nnm[i]
+  ttdif <- cbind(ttdif,ll)
+}
+ttdifm <- tibble(ttdif[,-1])|> 
+  drop_na()
+var_label(ttdifm) <- nscore[5:8]
+```
+
+
+# ÉVOLUTION
+
+Toutes les figures de cette section montrent l'évolution des scores ou des items du SF36 soit score (ou item) après les 20 sénces moins score (ou item) avant. 
+
+## Scores globaux
+
+```{r}
+#| label: fig-ridge_global
+#| fig-cap: "Scores moyens du SF36 - évolution"
+tt |> 
+  dplyr::select(36:37) |> 
+  drop_na() |> 
+  pivot_longer(everything()) |> 
+  mutate(name = factor(name, labels = c("Score moyen mental","Score moyen physique"))) |> 
+ridgeph(titre = "Scores moyens du SF36 - évolution")
+```
+
+
+## Items des scores
+
+### Score physique
+
+```{r}
+#| label: fig-ridge_physique
+#| fig-cap: "Items du score physique - évolution"
+ttdifp |> 
+  pivot_longer(everything()) |> 
+  mutate(name = factor(name, labels = nscore[1:4])) |> 
+ridgeph(titre = "Items du score physique - évolution")
+```
+
+### Score physique
+
+```{r}
+#| label: fig-ridge_mental
+#| fig-cap: "Items du score mental - évolution"
+ttdifm |> 
+  pivot_longer(everything()) |> 
+  mutate(name = factor(name, labels = nscore[5:8])) |> 
+ridgeph(titre = "Items du score mental - évolution")
+```
+
+# Évolution individuelle
+
+Les graphiques suivants montrent l'évolution cas par cas. 
+
+## Scores globaux
+
+```{r}
+#| label: fig-fagot_phy
+#| fig-cap: "Score moyen physique : évolution avant/après"
+
+tt |> 
+ drop_na(s_physique_20_seances) |> 
+  rename(c(avant = s_physique_avant,
+           après = s_physique_20_seances)) |> 
+  ggparcoord(columns = 24:25,scale = "center", splineFactor = TRUE) +
+    labs(title = "Score moyen physique : évolution avant/après",
+         x = "Score moyen physique du SF36") +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_blank(),
+    legend.title = element_text(size = 12),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_blank(),
+    legend.position = "none"
+  )
+```
+
+
+
+```{r}
+#| label: fig-fagot_ment
+#| fig-cap: "Score moyen mental : évolution avant/après"
+
+tt |> 
+ drop_na(s_mental_20_seances) |> 
+  rename(c(avant = s_mental_avant,
+           après = s_mental_20_seances)) |> 
+  ggparcoord(columns = 34:35,scale = "center", splineFactor = TRUE) +
+    labs(title = "Score moyen mental : évolution avant/après",
+         x = "Score moyen mental du SF36") +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_blank(),
+    legend.title = element_text(size = 12),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_blank(),
+    legend.position = "none"
+  )
+```
+
+

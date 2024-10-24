@@ -1,0 +1,30 @@
+---
+subtitle: "Matériel \\& Méthodes"
+toc: false
+lof: false
+lot: false
+---
+
+
+Cette étude a pour but d'étudier l'impact de la pratique de l'escrime sur la qualité de vie des patientes suivies pour un cancer du sein. Il s'agit d'un étude monocentrique non interventionnelle (RIPH de catégorie 3), étude ouverte sans groupe contrôle.
+
+### Population d'étude {-}
+
+La participation a l'étude a été proposée à toutes les femmes de plus de 18 ans, suivies pour un cancer du sein (stade ? Chirurgie ?) sur l'hôpital NOVO (Pontoise - France) entre le 01/01/2000 et le 31/12/2025. Les critères d'inclusion étaient les suivants : Cancer du sein de stade ..., après chirurgie ???.
+
+Les critères d'exclusion étaient les suivants : trouble psychiatrique connu, méconnaissance de la langue française, toute pathologie (neuro-musculaire\dots) contre-indiquant la pratique de l'escrime, absence de couverture sociale. Le protocole a été validé par un Comité de Protection des Personne (No xxx). Toutes les patientes ont signé un formulaire de non-opposition à la participation à l'étude conformément à la loi française. 
+
+Les patientes devaient participer à vingt séance d'escrime à raison d'une par semaine & d'une durée d'une heure, supervisées par un professeur diplômé & sous contrôle médical. Ces séances consistaient en ...
+
+L'évaluation de la qualité de vie reposait sur l'auto-questionnaire SF36 rempli avant la première séance puis à la dixième séance et après la  vingtième séance. Le critère principal porte sur l'évolution du score physique et du score mental calculé par différence entre le score recueilli avant le début des séances d'escrime & celui rempli après la vingtième séance. 
+
+### Statistiques {-}
+
+L'hypothèse nulle était l'absence de différence avant/après les séances. Sur une étude préparatoire la médiane des différences était pour le score physique de \num{13.12} \& de \num{13.38} pour le score mental. Le calcul a été réalisé sur le  sur le score le plus défavorable soit le score physique. Par une apprche par bootstrap on obtient  un nombre de 44 patientes à inclure. (\Gls{alpha} : \num{0.05}, \gls{puissance} : \num{0.8}).
+
+Les comparaisons avant/après sur les items (simples ou composites) du score SF36 ont été réalisées par des tests de Wilcoxon. L'hypothèse $\mathcal{H}_0$ est dans ce cas que, pour chaque patiente, la différence avant/après soit nulle. Une correction selon la méthode de Benjamini & Hochberg a été appliquée pour tenir compte du nombre important de tests réalisés.
+
+Un test exact de Fisher a été utilisé pour comparer l'évolution des scores physiques & mentaux après discrétisation en négatif/positif. La recherche de facteurs prédictifs a été réalisée par des tests \gls{anova}.  La qualité des corrélations a été estimée par la méthode des rangs de Spearman.
+
+L'analyse statistique a été réalisée grâce au logiciel **R**[@rstat].
+

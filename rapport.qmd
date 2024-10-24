@@ -1,0 +1,1007 @@
+---
+subtitle: "Rapport Statistique - V 3.0"
+cache: true
+---
+
+```{r}
+#| label: setup
+
+rm(list = ls())
+tt <- readRDS("data/escrime.rds")
+bn <- readRDS("data/bn.rds")
+bn <- bn$Nom
+expx <- FALSE
+classeur <- "escrime2.xls"
+if (expx){system(paste0("rm -f ",classeur))}
+#
+library(baseph)
+library(janitor)
+library(tidyverse)
+library(gtsummary)
+library(kableExtra)
+library(lubridate)
+library(kableExtra)
+library(forestmodel)
+library(labelled)
+library(epiDisplay)
+library(xlsx)
+library(visdat)
+library(GGally)
+library(ggridges)
+library(colorspace)
+#
+theme_gtsummary_language(language = "fr", decimal.mark = ",")
+options(OutDec = ",")
+
+expx <- FALSE
+classeur <- "escrime.xls"
+if (expx){system(paste0("rm -f ",classeur))}
+
+nscore <- c("PF (fonctionnement physique)",
+"RP (limitation physique)",
+"BP (douleur physique)",
+"GH (santé générale)",
+"VT (vitalité)",
+"SF (fonctionnement social)",
+"RE (limitation émotionnelle)",
+"MH (santé mentale)") 
+```
+
+```{r}
+#| label: macrotab
+
+formt <- function(tabx, oui = TRUE, comp = "") {
+  if (oui) {
+    cpt = 'Médiane (quartiles) ; n(%). Pour les données en *oui/non* seul le résultat pour *oui* est présenté'
+  }
+  else{
+    cpt = 'Médiane (quartiles) ; n(%)'
+  }
+  cpt = paste0(cpt, ". ", comp)
+  tabx |>
+    modify_footnote(update = everything() ~ cpt) |>
+    modify_header(label ~ " ", all_stat_cols() ~ "Total") %>%
+    add_n() |>
+    bold_labels()
+}
+#
+###
+#
+xexptabph <-
+  function(dfk,
+           exp = expx,
+           nomfich = "export",
+           nomsheet = "x",
+           lg = FALSE) {
+    zz <- dfk |>
+      as_kable_extra(longtable = lg, booktabs = TRUE) |>
+      kable_styling(latex_options = c( "repeat_header"))
+    if (exp) {
+      dfk |>
+        as_tibble() |>
+        write.xlsx(nomfich, sheetName = nomsheet, append = TRUE)
+    }
+    return(zz)
+  }
+```  
+
+```{r}
+#| label: macro_ridgeph
+
+ridgeph <- function(df, titre = ""){
+ df |>  
+  ggplot() +
+    aes(x= value, y = name, fill = name) +
+    geom_density_ridges() +
+  theme_ridges(center_axis_labels = FALSE) +
+    geom_vline(xintercept = 0,linetype = "dotdash", color = "grey20") +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
+    labs(title = titre) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.title = element_text(size = 12),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+} 
+```
+
+```{r}
+#| label: macro_tabpair
+
+tabpair <- function(ncol,
+                    noms,
+                    exp = FALSE,
+                    classeur = classeur,
+                    sheet) {
+  tabx <- NULL
+  for (i in ncol) {
+    print(i)
+    lig <- NULL
+    t1 <- pull(tt[, i])
+    t2 <- pull(tt[, i + 1])
+    med1 <- paste0(round(median(t1, na.rm = TRUE), 1),
+                   " (",
+                   round(quantile(t1, na.rm = TRUE)[[2]], 1),
+                   " - ",
+                   round(quantile(t1, na.rm = TRUE)[[4]], 1),
+                   ")")
+    med2 <- paste0(round(median(t2, na.rm = TRUE), 1),
+                   " (",
+                   round(quantile(t2, na.rm = TRUE)[[2]], 1),
+                   " - ",
+                   round(quantile(t2, na.rm = TRUE)[[4]], 1),
+                   ")")
+    dif <- wilcox.test(t1, t2, paired = TRUE)
+    lig <- c(med1, med2, beaup(dif$p.value))
+    tabx <- rbind(tabx, lig)
+  }
+  taby <- as_tibble(tabx) |>
+    drop_na() |>
+    mutate(Score = noms) |>
+    relocate(Score)
+  names(taby) <- c("SF36", "Avant", "20 séances", "p-value")
+  zz <- kbl(taby, booktabs = TRUE) |>
+    kable_styling(latex_options = c("HOLD_position")) |>
+    footnote(general = "Médiane (quartiles) - Test de Wilocoxon")
+  if (exp) {
+    zz |>
+      xlsx::write.xlsx(classeur, sheetName = sheet, append = TRUE)
+  }
+  zz
+}
+```
+
+
+
+# Contrôle de l'échantillon
+
+- Dans la variable `GS/CA` deux cas sont notés *non*. Vu le faible nombre de cas que cela représente, elles ne seront pas prise en compte.
+
+
+
+
+## Données manquantes
+
+```{r}
+#| label: fig-manq-apt
+#| fig-cap: Données manquantes (questionnaire patient)
+
+zz <- tt |> 
+  group_by(sf36_20_seances) |>
+  count() 
+
+
+vis_dat(tt , palette = "qual")
+```
+
+La donnée `SF36 après` n'est complète que pour `r zz$n[[2]]` patientes. 
+
+
+## Corrélations
+
+On recherche des données trop bien corrélées c'est à dire faisant doublon.
+
+```{r}
+#| label: fig-cor
+#| fig-cap: Corrélations internes
+
+tt |> 
+   mutate_if(is.factor, as.numeric) |> 
+   dplyr::select(!meta) |> 
+   dplyr::select(!id) |> 
+   ggcorr(drop = TRUE) +
+    scale_fill_continuous_sequential(palette = "Dark Mint") +      
+  labs(title = "Corrélations",
+      y = "n",
+      caption = "Corrélations. Validation interne qu questionnaire."
+      ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_blank(),,
+         axis.text.x = element_text(size = 12 ),
+      axis.text.y = element_text(size = 12),
+      legend.position = "right"
+    )
+```
+
+On ne met pas en évidence de corrélations anormales dans les données démographiques. Par contre les différents items du score SF36 semblent très corrélés entre eux ce qui est une preuve de qualité du remplissage des questionnaires.  
+
+\clearpage
+# Description de la population
+
+L'échantillon comporte `r nrow(tt)` cas pour `r ncol(tt)-2` variables.
+
+## Démographie
+
+
+```{r}
+#| label: tbl-desc1
+#| tbl-cap: Tableau descriptif
+tt |>
+ dplyr::select(2:11) |>
+ tbl_summary(missing = "no",
+             type = list(radiot ~ "dichotomous"),
+             value = list(radiot = "oui",
+                          chimiot = "oui",
+                          meta = "oui",
+                          hormonot = "oui")) |>
+  formt(oui = FALSE) |> 
+ xexptabph(
+  lg = FALSE,
+  exp = expx,
+  nomfich = classeur,
+  nomsheet = "desc1"
+ )
+```
+
+```{r}
+#| label: fig-tt
+#| fig-cap: Traitements reçus
+
+tot <- nrow(tt)
+tt |> 
+  dplyr::select(4:6) |> 
+  pivot_longer(1:3) |> 
+  dplyr::filter(value == "oui") |> 
+  count(name) |> 
+  mutate(name = factor(name, labels = c("Chimiothérapie", "Hormonothérapie", "Radiothérapie")))|>
+  mutate(pp = n* 100/tot )|> 
+  mutate(pq = 196*sqrt((n/tot*(1-n/tot))/(tot-1))) |> 
+  ggplot() +
+  aes(x = fct_reorder(name, pp, .desc = TRUE), fill = name, y = pp) +
+  geom_bar(stat = "identity") +
+    geom_errorbar(aes(ymin = pp-pq, ymax = pp+pq), width = 0.6) +
+      labs(title = "Traitements reçus",
+         y = "%",
+         caption = "Traitements reçus") +
+    theme_light() +
+  scale_y_continuous(limits = c(0,100)) +
+    scale_fill_discrete_qualitative(palette = "Dark 3") +
+    theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      plot.subtitle = element_text(size = 12),
+      axis.title.x = element_blank(),
+      legend.title = element_blank(),
+      axis.title.y = element_text(
+        size = 12,
+        angle = 0,
+        vjust = .5
+      ),
+      axis.text.x = element_text(size = 12 ),
+      axis.text.y = element_text(size = 12),
+      legend.position = "none"
+    )
+```
+
+```{r}
+#| label: fig-grab
+#| fig-cap: Échelle Grabataire/ Sportive
+
+tt |>
+  drop_na(grabataire_sportive) |>
+  count(grabataire_sportive, .drop = FALSE) |> 
+  ggplot() +
+  aes(x = grabataire_sportive, y = n, fill = grabataire_sportive) +
+  geom_bar(stat = "identity") +
+  scale_fill_discrete_sequential(palette = "Dark Mint") +      
+  labs(title = "Échelle Grabataire/ Sportive",
+      y = "n",
+      caption = "Échelle Grabataire/ Sportive "
+      ) +
+  annotate("text", x = 1, y = 28, label = "<- Grabataire", size = 6) +
+  annotate("text", x = 4, y = 28, label = "Sportive ->", size = 6) +
+  theme_light() +
+ # scale_y_continuous(limits = c(0, 12), breaks = seq(0,12,2))+
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+```{r}
+#| label: tbl-qual
+#| tbl-cap: Taux de remplissage des questionnaires
+
+tt |>
+ dplyr::select(12:15) |>
+ relocate(quest_10_seances, .after = sf36_3_seances) |>
+ tbl_summary(missing = "no",
+             value = list(sf36_3_seances ~ "oui",
+                         sf36_20_seances ~ "oui",
+                          quest_10_seances ~ "oui"),
+             type = list(sf36_3_seances ~ "dichotomous",
+                         sf36_20_seances ~ "dichotomous",
+                          quest_10_seances ~ "dichotomous")
+             ) |>
+formt(oui = FALSE) |> 
+ xexptabph(
+  lg = FALSE,
+  exp = expx,
+  nomfich = classeur,
+  nomsheet = "rempli"
+ )
+```
+
+
+```{r}
+#| label: tbl-avant
+#| tbl-cap: "Scores avant les séances" 
+
+tt |>
+ dplyr::select(ends_with("avant")) |>
+ tbl_summary(missing = "no",
+             type = list(rp_avant ~ "continuous",
+                         sf_avant ~ "continuous",
+                          re_avant ~ "continuous")
+             ) |>
+formt(oui = FALSE) |>
+xexptabph(
+ lg = FALSE,
+ exp = expx,
+ nomfich = classeur,
+ nomsheet = "avant"
+)
+```
+
+```{r}
+#| label: tbl-après
+#| tbl-cap: "Scores après les 20 séances" 
+
+tt |>
+ dplyr::select(seq(17,35,2)) |>
+ tbl_summary(missing = "no",
+             type = list(pf20seances ~ "continuous",
+                         rp20seances ~ "continuous",
+                          sf20seances ~ "continuous",
+                         re20seances ~ "continuous")) |>
+formt(oui = TRUE) |> 
+ xexptabph(
+  lg = FALSE,
+  exp = expx,
+  nomfich = classeur,
+  nomsheet = "après"
+ )
+```
+
+# Critère principal
+
+Comparaison avant/après des scores physiques & mentaux du SF36.
+
+Ce tableau & les suivants présentent l'évolution des scores physiques et mentaux du SF36 c'est à dire score (ou item) après les 20 séances moins le score avant les séances.
+
+```{r}
+#| label: différences
+
+avp <- seq(16,22,2)
+nnp <- str_sub(names(tt[avp]),1,2)
+app <- avp + 1
+avm <- seq(26,32,2)
+nnm <- str_sub(names(tt[avm]),1,2)
+apm <- avm + 1
+#
+ttdif <- 1:58
+for (i in 1:4) {
+ll <-  tt[,app[i]] - tt[,avp[i]]
+names(ll) <- nnp[i]
+ttdif <- cbind(ttdif,ll)
+}
+ttdifp <- tibble(ttdif[,-1]) |> 
+  drop_na()
+var_label(ttdifp) <- nscore[1:4]
+#
+ttdif <- 1:58
+for (i in 1:4) {
+  ll <-  tt[,apm[i]] - tt[,avm[i]]
+  names(ll) <- nnm[i]
+  ttdif <- cbind(ttdif,ll)
+}
+ttdifm <- tibble(ttdif[,-1])|> 
+  drop_na()
+var_label(ttdifm) <- nscore[5:8]
+```
+
+```{r}
+#| label: tbl-difference1
+#| tbl-cap: "Évolution du score SF36"
+
+tabpair(c(24,34), 
+        noms= c("Score physique","Score mental"),
+        sheet ="diftot")
+```
+
+
+```{r}
+#| label: fig-ridge_global
+#| fig-cap: "Scores moyens du SF36 - évolution"
+tt |> 
+  dplyr::select(36:37) |> 
+  drop_na() |> 
+  pivot_longer(everything()) |> 
+  mutate(name = factor(name, labels = c("Score moyen mental","Score moyen physique"))) |> 
+ridgeph(titre = "Scores moyens du SF36 - évolution")
+```
+
+# Critères secondaires
+
+## Score physique
+
+```{r}
+#| label: tbl-differencephy
+#| tbl-cap: "Évolution du score SF36 physique"
+
+tabpair(c(16,18,20,22), 
+        noms = c("PF (fonctionnement physique)","RP (limitation physique)","BP (douleur physique)","GH (santé générale)"),
+        sheet ="difphy")
+
+```
+
+
+```{r}
+#| label: fig-difphy
+#| fig-cap: Évolution des items du score physique du SF36
+ttdifp |>
+  pivot_longer(1:4) |>
+  mutate(name = factor(
+    name,
+    levels = c("pf", "rp", "bp", "gh"),
+    labels = c("PF", "RP", "BP", "GH")
+  )) |>
+  ggplot() +
+  #    +
+  aes(x = name, y = value, fill = name) +
+  geom_violin() +
+  geom_boxplot(width = 0.2, fill = "grey90") +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotdash",
+    color = "grey50",
+    size = 0.8
+  ) +
+  labs(title = "Évolution des items du score physique du SF36",
+       y = "n",
+       caption = "Évolution des items du score physique du SF36") +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+```{r}
+#| label: fig-deltaphy2
+#| fig-cap: Évolution des items du score physique du SF36
+
+ttdifp |> 
+  pivot_longer(cols = c(everything()), names_to = "items", values_to = "value") |>
+  mutate(items = factor(items, labels = c("BP","GH","PF","RP") )) |> 
+  ggplot() +
+  aes(x = value, y = items, fill = ..x..) +
+  geom_density_ridges_gradient(scale = 1.1) +
+    geom_vline(xintercept = 0, linetype = "dotdash", color = "grey80", size = 0.8) +
+  labs(title = "Évolutions du score physique du SF36", 
+       x = "Différence après/avant", 
+       y = "Items physiques") +
+  theme_light() +
+  scale_fill_continuous_sequential("Plasma", rev = FALSE) +
+  theme(
+    legend.position="none",
+    title = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  )
+```
+
+```{r}
+#| label: fig-ridge_physique
+#| fig-cap: "Items du score physique - évolution"
+ttdifp |> 
+  pivot_longer(everything()) |> 
+  mutate(name = factor(name, labels = nscore[1:4])) |> 
+ridgeph(titre = "Items du score physique - évolution")
+```
+
+## Score mental
+
+```{r}
+#| label: tbl-differencement
+#| tbl-cap: "Évolution du score SF36 physique"
+
+tabpair(c(26,28,30,32), 
+        noms = c("VT (vitalité)","SF (fonctionnement social)","RE (limitation émotionnelle)
+ ","MH (santé mentale)"),
+        sheet ="difment")
+
+```
+```
+
+```{r}
+#| label: difment
+#| fig-cap: Évolution des items du score mental du SF36
+ttdifm |>
+  pivot_longer(1:4) |>
+  mutate(name = factor(
+    name,
+    levels = c("vt", "sf", "re", "mh"),
+    labels = c("VT", "SF", "RE", "MH")
+  )) |>
+  ggplot() +
+  #    +
+  aes(x = name, y = value, fill = name) +
+  geom_violin() +
+  geom_boxplot(width = 0.2, fill = "grey90") +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dotdash",
+    color = "grey50",
+    size = 0.8
+  ) +
+  labs(title = "Évolution des items du score mental du SF36",
+       y = "n",
+       caption = "Évolution des items du score mental du SF36") +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+
+```{r}
+#| label: fig-deltamental2
+#| fig-cap: Évolution des items du score mental du SF36
+
+ttdifm |> 
+  pivot_longer(cols = c(everything()), names_to = "items", values_to = "value") |>
+ mutate(items = factor(items, labels = c("MH","RE","SF","VT") )) |> 
+  ggplot() +
+  aes(x = value, y = items, fill = ..x..) +
+  geom_density_ridges_gradient(scale = 1.1) +
+  labs(title = "Évolutions du score mental du SF36", 
+       x = "Différence après/avant", 
+       y = "Items mental") +
+      geom_vline(xintercept = 0, linetype = "dotdash", color = "grey80", size = 0.8) +
+  theme_light() +
+  scale_fill_continuous_sequential("Plasma", rev = FALSE) +
+  theme(
+    legend.position="none",
+    title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  )
+```
+
+```{r}
+#| label: violevol
+#| fig-cap: "Évolution des scores du SF36"
+tt |> 
+  dplyr::select(36:37) |>
+  pivot_longer(1:2) |>
+  mutate(name = factor(name, levels = c("sf36p_dif", "sf36m_dif"),labels = c("Score moyen physique", "Socre moyen mental"))) |>
+  ggplot() +
+#    +
+  aes(x= name, y = value, fill = name) +
+  geom_violin() +
+  geom_boxplot(width = 0.2, fill = "grey90") +
+    scale_fill_discrete_qualitative(palette = "Dark 3") +   
+  geom_hline(yintercept = 0,linetype = "dotdash", color = "grey40") +
+  labs(title = "Évolution des scores du SF36",
+      y = "n",
+      caption = "Évolution des scores du SF36"
+      ) +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+```{r}
+#| label: fig-ridge_mental
+#| fig-cap: "Items du score mental - évolution"
+ttdifm |> 
+  pivot_longer(everything()) |> 
+  mutate(name = factor(name, labels = nscore[5:8])) |> 
+ridgeph(titre = "Items du score mental - évolution")
+```
+
+\clearpage
+
+## Évolution des scores selon le score initial
+
+On cherche s'il existe une corrélation entre le score (physique ou mental) avant les séances & l'évolution du score.
+
+```{r}
+#| label:  fig-corphy
+#| fig-cap: Corrélation score SF36 physique avant & évolution
+#| 
+tta <- tt |> 
+  drop_na(s_physique_20_seances)
+ccp <- cor.test(tta$s_physique_avant,tta$s_physique_20_seances, method = "spearm")
+ccp <- paste0("p = ", round(ccp$p.value,3))
+msc <- quantile(tta$s_physique_20_seances)[2:4]
+tta |> 
+  ggplot() + 
+  aes(x = s_physique_avant, y = s_physique_20_seances, color = s_physique_avant)  + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_hline(yintercept = msc,linetype = "dashed", color = "grey50") +
+  annotate("text",x = 90, y = 25, label = ccp, size = 5) +
+    labs(title = "SF36 (physique) : \n évolution selon le score initial",
+        x ="Score SF36 physique initial",
+       y = "Évolution du SF36 physique",
+       caption = "Évolution avant/après du score moyen physique du SFR36 selon le score initial.\n Les lignes horizontales représentent la médiane et les quartiles de l'évolution du score.") +
+  theme_light() +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 90,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+```{r}
+#| label:  fig-corment
+#| fig-cap: Corrélation score SF36 mental avant & évolution
+#| 
+tta <- tt |> 
+  drop_na(s_mental_20_seances)
+ccp <- cor.test(tta$s_mental_avant,tta$s_mental_20_seances, method = "spearm")
+ccp <- paste0("p = ", round(ccp$p.value,3))
+msc <- quantile(tta$s_physique_20_seances)[2:4]
+tta |> 
+  ggplot() + 
+  aes(x = s_mental_avant, y = s_mental_20_seances, color = s_mental_avant)  + 
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_hline(yintercept = msc,linetype = "dashed", color = "grey50") +
+  annotate("text",x = 85, y = 30, label = ccp, size = 5) +
+    labs(title = "SF36 (mental) : \n évolution selon le score initial",
+        x ="Score SF36 mental initial",
+       y = "Évolution du SF36 mental",
+       caption = "Évolution avant/après du score moyen physique du SFR36 selon le score initial.\n Les lignes horizontales représentent la médiane et les quartiles de l'évolution du score.") +
+  theme_light() +
+  scale_fill_discrete_qualitative(palette = "Dark 3") +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 90,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+## Avant/après
+
+
+```{r}
+#| label: tab-avap
+#| tbl-cap: "Comparaison avant/après les 20 séances d'escrime"
+tabx <- NULL
+nn <- c(seq(16, 22, 2), seq(26, 32, 2))
+for (i in nn) {
+  med1 <- round(quantile(tt[[i]], na.rm = TRUE), 2)
+  mm1 <- paste0(med1[3], " [", med1[2], ";", med1[4], "]")
+  med2 <- round(quantile(tt[[i + 1]], na.rm = TRUE), 2)
+  mm2 <- paste0(med2[3], " [", med2[2], ";", med2[4], "]")
+  zz <- wilcox.test(tt[[i]], tt[[i + 1]], paired = TRUE)
+  ll <- c(mm1, mm2, beaup(zz$p.value))
+  tabx <- rbind(tabx, ll)
+}
+tabx <- as_tibble(tabx)
+tabx$Item <- nscore
+tabx <- relocate(tabx, Item)
+names(tabx) <- c("Item", "Avant", "Après", "p-value")
+tabx |>
+  kbl(booktabs = T) |>
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+On compare ici non pas les médianes globales mais les différences avant/après, cas par cas. L'hypothèse $\mathcal{H}_0$ est donc que la différence avant/après soit nulle. On utilise le test de Wilcoxon pour séries appariées, plus sensible ce qui explique la différence apparente de résultat avec les tableaux @tbl-differencephy & @tbl-diffmental.
+
+```{r}
+#| label: tab-diffpos
+#| tbl-cap: Évolution des scores du SF36 positive ou non
+
+dif2 <- tt |>
+  mutate(difphy = if_else(sf36p_dif > 0, "positif", "négatif")) |>
+  mutate(difment = if_else(sf36m_dif > 0, "positif", "négatif")) |>
+  dplyr::select(starts_with("dif"))
+var_label(dif2) <- c("Score physique", "Score mental")
+dif2 |>
+  tbl_summary(missing = "no") |>
+  formt(oui = FALSE) |>
+  xexptabph(
+    lg = FALSE,
+    exp = expx,
+    nomfich = classeur,
+    nomsheet = "diffpos"
+  )
+```
+
+
+## Mens sana in corpore sano {.smaller}
+
+```{r}
+#| label: tab-conc
+#| tbl-cap: Concordance des scores physique et mental
+
+dif2 |> 
+  drop_na(difphy,difment) |>
+  tbl_cross(difphy,difment) |>
+  add_p(test = "fisher.test") |> 
+  bold_labels() |>
+     xexptabph(
+  lg = TRUE,
+  exp = expx,
+  nomfich = classeur,
+  nomsheet = "diffpos2"
+ )
+``` 
+
+
+```{r}
+#| label:  fig-corphyment
+#| fig-cap: "Corrélation de l'évolution des scores SF36 physique et mental"
+#| fig-asp: 1
+
+tta <- tt |>
+  drop_na(sf36p_dif)
+ccp <- cor.test(tta$sf36p_dif, tta$sf36m_dif, method = "spearm")
+ccp <- beaup(ccp$p.value, affp = 1)
+msc <- quantile(tta$sf36p_dif)[2:4]
+msm <- quantile(tta$sf36m_dif)[2:4]
+tta |>
+  ggplot() +
+  aes(x = sf36p_dif, y = sf36m_dif)  +
+  geom_point() +
+  geom_smooth(method = lm) +
+  geom_hline(yintercept = msc,
+             linetype = "dashed",
+             color = "grey50") +
+  geom_vline(xintercept = msm,
+             linetype = "dashed",
+             color = "grey50") +
+  annotate(
+    "text",
+    x = 65,
+    y = -20,
+    label = ccp,
+    size = 5
+  ) +
+  labs(
+    title = "Corrélation de l'évolution des scores SF36\n physique et mental",
+    x = "Évolution du SF36 physique",
+    y = "Évolution du SF36 mental",
+    caption = "Corrélation de l'évolution des scores SF36 physique et mental"
+  ) +
+  theme_light() +
+  scale_y_continuous(limits = c(-30, 75, 100)) +
+  scale_x_continuous(limits = c(-30, 75, 100)) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 90,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+
+L'amélioration (ou la non amélioration) des deux segments, physique & mental, semble liée.
+
+\clearpage
+## Facteurs influants
+
+```{r}
+#| label: tab-fact1
+#| tbl-cap: "Facteurs influants l'évolution des scores"
+
+tabx <- NULL
+nn <- c(2:6, 8:11)
+ln <- bn[nn]
+for (i in nn) {
+  zz <- anova(lm(tt$sf36m_dif ~ tt[[i]]))
+  zzm <- round(zz$`Pr(>F)`[[1]], 3)
+  zz <- anova(lm(tt$sf36p_dif ~ tt[[i]]))
+  zzp <- round(zz$`Pr(>F)`[[1]], 3)
+  ll <- c(zzp, zzm)
+  tabx <- rbind(tabx, ll)
+}
+tabx <- as_tibble(tabx)
+tabx$Item <- ln
+tabx <- relocate(tabx, Item)
+names(tabx) <-
+  c("Item", "p-value (score physique)", "p-value (score mental)")
+
+tabx |>
+  kbl(booktabs = TRUE) |>
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+Seule la radiothérapie semble influer sur l'évolution des scores. De plus la faible taille de l'échantillon rend ces résultats peu fiables avec en particulier une puissance faible (risque de ne pas mettre en évidence une différence existante). 
+
+\clearpage
+# Abandons
+
+On vérifie ici si  les patientes ayant abandonné en cours de route (c'est à dire score avant présent, score à vingt séances absent) sont différentes de celles ayant terminé la série de séances.
+
+```{r}
+#| label: tbl-abandon
+#| tbl-cap: Adhérence au traitement
+
+tt |> 
+  dplyr::select(2:11, 13) |>
+  tbl_summary(by = sf36_20_seances, 
+              missing = "no",
+                           type = list(radiot ~ "dichotomous"),
+             value = list(radiot = "oui",
+                          chimiot = "oui",
+                          meta = "oui",
+                          hormonot = "oui")) |>
+  add_p() |> 
+  add_q() |>
+    formt(oui = TRUE) |> 
+ xexptabph(
+  lg = FALSE,
+  exp = expx,
+  nomfich = classeur,
+  nomsheet = "abandon"
+ )
+```
+
+
+
+Aucun des items étudiés ne semble jouer sur l'adhérence au traitement. La *p-value* basse pour l'hormonothérapie semble douteuse ce qui se confirme après correction (méthode de Benjamini & Hochberg) sur la colonne `q-value`.
+
+
+# Évolution individuelle
+s. 
+
+## Scores globaux
+
+```{r}
+#| label: fig-fagot_phy
+#| fig-cap: "Score moyen physique : évolution avant/après"
+
+tt |> 
+ drop_na(s_physique_20_seances) |> 
+  rename(c(avant = s_physique_avant,
+           après = s_physique_20_seances)) |> 
+  ggparcoord(columns = 24:25,scale = "center", splineFactor = TRUE) +
+    labs(title = "Score moyen physique : évolution avant/après",
+         x = "Score moyen physique du SF36") +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_blank(),
+    legend.title = element_text(size = 12),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_blank(),
+    legend.position = "none"
+  )
+```
+
+
+
+```{r}
+#| label: fig-fagot_ment
+#| fig-cap: "Score moyen mental : évolution avant/après"
+
+tt |> 
+ drop_na(s_mental_20_seances) |> 
+  rename(c(avant = s_mental_avant,
+           après = s_mental_20_seances)) |> 
+  ggparcoord(columns = 34:35,scale = "center", splineFactor = TRUE) +
+    labs(title = "Score moyen mental : évolution avant/après",
+         x = "Score moyen mental du SF36") +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_blank(),
+    legend.title = element_text(size = 12),
+    axis.text.x = element_text(size = 12 ),
+    axis.text.y = element_blank(),
+    legend.position = "none"
+  )
+```
+
+
+
+# Technique
+
+Les données démographiques ont été décrites par la médiane & les quartiles pour les données numériques, en nombre et pourcentage pour les données catégorielles.
+
+Le risque \gls{alpha} a été fixé à \num{0.05} & la puissance à \num{0.8}. 
+
+Sur une étude préparatoire on avait trouvé une moyenne des différences pour le score physique est de \num{13.12} \& de \num{13.38} pour le score mental. Le calcul a été réalisé sur le  sur le score le plus défavorable soit le score physique. On obtient alors un nombre de patientes nécessaires de 44 cas utilisables. 
+
+
+Les comparaisons avant/après sur les items (simples ou composites) du score SF36 ont été réalisées par des tests t de Sudent après vérification de la normalité de la distribution des valeurs (test de Shapiro-Wilk). L'hypothèse $\mathcal{H}_0$ est dans ce cas que, pour chaque patiente, la différence avant/après soit nulle. Une correction selon la méthode de Benjamini & Hochberg a été appliquée pour tenir compte du nombre important de tests réalisés.
+
+Un test exact de Fisher a été utilisé pour comparer l'évolution des scores physiques & mentaux après discrétisation en négatif/positif. La recherche de facteurs prédictifs a été réalisée par des tests \gls{anova}.  La qualité des corrélations a été estimée par la méthode des rangs de Spearman.
+
+L'analyse statistique a été réalisée grâce au logiciel **R**[@rstat] & à divers packages en particulier `tidyverse`[@tidy] & `baseph`[@baseph].
+
+\printglossaries

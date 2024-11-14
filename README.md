@@ -13,8 +13,7 @@
 **Étude interventionnelle monocentrique**
 
 
-04/04/2024 **Plan d'analyse** avec calcul du nombre de cas.
-18/04/2024 **Rapport statistique** terminé
+14/11/2024 **Plan d'analyse** revu pour des études complémentaires.
 24/10/2024 **Rapport statistique** 
  - Page de garde avec les noms (fichier `generique.tex`, absent sur le serveur).
  - Liste d'acronymes & petites explication des termes statistiques (fichier `acronymes.tex`).

@@ -18,13 +18,43 @@ Les patientes devaient participer à vingt séance d'escrime à raison d'une par
 
 L'évaluation de la qualité de vie reposait sur l'auto-questionnaire SF36 rempli avant la première séance puis à la dixième séance et après la  vingtième séance. Le critère principal porte sur l'évolution du score physique et du score mental calculé par différence entre le score recueilli avant le début des séances d'escrime & celui rempli après la vingtième séance. 
 
-### Statistiques {-}
+## Critère principal
 
-L'hypothèse nulle était l'absence de différence avant/après les séances. Sur une étude préparatoire la médiane des différences était pour le score physique de \num{13.12} \& de \num{13.38} pour le score mental. Le calcul a été réalisé sur le  sur le score le plus défavorable soit le score physique. Par une apprche par bootstrap on obtient  un nombre de 44 patientes à inclure. (\Gls{alpha} : \num{0.05}, \gls{puissance} : \num{0.8}).
+*Comparaison avant/après des scores physiques & mentaux du SF36.*
+
+L'évolution du score (physique ou mental) est définie comme la différence entre le score après les séances & le score avant les séances. L"analyse sera faite par un test de Wilcoxon pour séries appariée (l'hypothèse nulle étant que la différence après - avant est nulle). Le résultat sera rendu pour le score total & les scores physiques & mentaux. 
+
+## Critères secondaires
+
+### Critère secondaire 1
+
+*Corrélation entre le score (physique ou mental) avant les séances & l’évolution du score.*
+
+Une analyse par corrélation de Spearman sera réalisée entre le score avant les séances & l'évolution des scores physiques & mentaux. 
+
+
+### Critère secondaire 2
+
+*Comparaison de l'évolution des scores physiques & mentaux après les séances.*
+
+Une analyse par corrélation de Spearman sera réalisée entre l'évolution du score physique & l'évolution du score mental. 
+
+### Critère secondaire 3
+*Rechrche de facteurs influants sur l'évolution des scores.*
+
+Des items démographiques ou médicaux pouvant influer sur la réponse aux séances sont recherchés par analyse simple critère par critère (tests de Wilcoxon) puis en régression linéaire pour une analyse multi-critère si le nombre de cas le permet. 
+
+
+## Statistiques {-}
+
+L'hypothèse nulle était l'absence de différence avant/après les séances. Sur une étude préparatoire la médiane des différences était pour le score physique de \num{13.12} \& de \num{13.38} pour le score mental. Le calcul a été réalisé sur le  sur le score le plus défavorable soit le score physique. Par une approche par bootstrap on obtient  un nombre de 44 patientes à inclure. (\Gls{alpha} : \num{0.05}, \gls{puissance} : \num{0.8}).
 
 Les comparaisons avant/après sur les items (simples ou composites) du score SF36 ont été réalisées par des tests de Wilcoxon. L'hypothèse $\mathcal{H}_0$ est dans ce cas que, pour chaque patiente, la différence avant/après soit nulle. Une correction selon la méthode de Benjamini & Hochberg a été appliquée pour tenir compte du nombre important de tests réalisés.
 
 Un test exact de Fisher a été utilisé pour comparer l'évolution des scores physiques & mentaux après discrétisation en négatif/positif. La recherche de facteurs prédictifs a été réalisée par des tests \gls{anova}.  La qualité des corrélations a été estimée par la méthode des rangs de Spearman.
 
-L'analyse statistique a été réalisée grâce au logiciel **R**[@rstat].
+L'analyse statistique sera réalisée avec le logiciel **R**[@rstat] & divers packages. Outre ceux cités dans le texte ou utilisera en particulier `tidyverse` [@tidy] & `baseph` [@baseph].
 
+Un dépôt GitHub sera utilisé qui ne comprendra que le code & non les données ou résultats. Au besoin un faux tableau de données sera présenté pour permettre des tests.
+
+<https://github.com/philippemichel/sein_escrime>

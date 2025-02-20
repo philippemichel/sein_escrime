@@ -1,5 +1,5 @@
 ---
-subtitle: "Rapport Statistique - V 4.0"
+subtitle: "Rapport Statistique - V 4.0 (eng)"
 cache: false
 ---
 
@@ -11,8 +11,7 @@ tt <- readRDS("data/escrime.rds")
 bn <- readRDS("data/bn.rds")
 bn <- bn$Nom
 expx <- FALSE
-classeur <- "escrime2.xls"
-if (expx){system(paste0("rm -f ",classeur))}
+classeur <- "escrime2.ods"
 #
 library(baseph)
 library(janitor)
@@ -24,7 +23,7 @@ library(kableExtra)
 library(forestmodel)
 library(labelled)
 library(epiDisplay)
-library(xlsx)
+library(readODS)
 library(visdat)
 library(GGally)
 library(ggridges)
@@ -33,9 +32,6 @@ library(colorspace)
 theme_gtsummary_language(language = "fr", decimal.mark = ",")
 options(OutDec = ",")
 
-expx <- FALSE
-classeur <- "escrime.xls"
-if (expx){system(paste0("rm -f ",classeur))}
 
 nscore <- c("PF (fonctionnement physique)",
 "RP (limitation physique)",
@@ -79,7 +75,7 @@ xexptabph <-
     if (exp) {
       dfk |>
         as_tibble() |>
-        write.xlsx(nomfich, sheetName = nomsheet, append = TRUE)
+        write_ods(path = nomfich, sheet = nomsheet, append = TRUE)
     }
     return(zz)
   }
@@ -648,6 +644,43 @@ tt |>
   )
 ```
 
+
+```{r}
+#| label: violevol-eng
+#| fig-cap: "Evolution of the overall scores of the SF36"
+tt |> 
+  dplyr::select(36:37) |>
+  pivot_longer(1:2) |>
+  mutate(name = factor(name, levels = c("sf36p_dif", "sf36m_dif"),labels = c("physical functioning", "emotional well-being"))) |>
+  ggplot() +
+#    +
+  aes(x= name, y = value, fill = name) +
+  geom_violin() +
+  geom_boxplot(width = 0.2, fill = "grey90") +
+    scale_fill_discrete_qualitative(palette = "Dark 3") +   
+  geom_hline(yintercept = 0,linetype = "dotdash", color = "grey40") +
+  labs(title = "Evolution of the overall scores of the SF36",
+      y = "n",
+      caption = ""
+      ) +
+  theme_light() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    axis.title.y = element_text(
+      size = 12,
+      angle = 0,
+      vjust = .5
+    ),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none"
+  )
+```
+
+
 ```{r}
 #| label: fig-ridge_mental
 #| fig-cap: "Items du score mental - évolution"
@@ -677,10 +710,10 @@ tta |>
   geom_smooth(method = lm) +
   geom_hline(yintercept = msc,linetype = "dashed", color = "grey50") +
   annotate("text",x = 90, y = 25, label = ccp, size = 5) +
-    labs(title = "SF36 (physique) : \n évolution selon le score initial",
-        x ="Score SF36 physique initial",
-       y = "Évolution du SF36 physique",
-       caption = "Évolution avant/après du score moyen physique du SFR36 selon le score initial.\n Les lignes horizontales représentent la médiane et les quartiles de l'évolution du score.") +
+    labs(title = "SF36 (physical) :  \n evolution according to the initial score",
+        x ="Initial physical SF36 score",
+       y = "Evolution of physical SF36",
+       caption = "") +
   theme_light() +
   scale_fill_discrete_qualitative(palette = "Dark 3") +
   theme(
@@ -715,10 +748,10 @@ tta |>
   geom_smooth(method = lm) +
   geom_hline(yintercept = msc,linetype = "dashed", color = "grey50") +
   annotate("text",x = 85, y = 30, label = ccp, size = 5) +
-    labs(title = "SF36 (mental) : \n évolution selon le score initial",
-        x ="Score SF36 mental initial",
-       y = "Évolution du SF36 mental",
-       caption = "Évolution avant/après du score moyen physique du SFR36 selon le score initial.\n Les lignes horizontales représentent la médiane et les quartiles de l'évolution du score.") +
+    labs(title = "SF36 (emotional well-being) :  \n evolution according to the initial score",
+             x ="Initial mental SF36 score",
+       y = "Evolution of mental SF36",
+       caption = "")+
   theme_light() +
   scale_fill_discrete_qualitative(palette = "Dark 3") +
   theme(
@@ -875,7 +908,7 @@ On vérifie ici si  les patientes ayant abandonné en cours de route (c'est à d
 #| label: tbl-abandon
 #| tbl-cap: Adhérence au traitement
 
-tt |> 
+zz <- tt |> 
   dplyr::select(2:11, 13) |>
   tbl_summary(by = sf36_20_seances, 
               missing = "no",
